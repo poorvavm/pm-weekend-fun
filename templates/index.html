@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bay Area Weekend Events</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header>
+  <h1>Bay Area Weekend Events</h1>
+  <p class="subtitle">Family-friendly &nbsp;·&nbsp; Free &amp; cheap &nbsp;·&nbsp; Multi-stop routes</p>
+  <button class="hero-btn" id="findBtn" onclick="findEvents()">&#x2600;&#xfe0f; Find Events</button>
+</header>
+
+<div class="container">
+  <div id="spinner" class="spinner hidden">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <span id="spinnerMsg">Finding the best spots for your weekend…</span>
+  </div>
+
+  <div id="error" class="error hidden"></div>
+  <div id="filterBar" class="hidden"></div>
+  <div id="results" class="hidden"></div>
+  <div id="moreWrap" class="hidden" style="text-align:center;margin:1rem 0 2rem;">
+    <button class="more-btn" onclick="showMore()">Show More Events</button>
+  </div>
+</div>
+
+<script>
+const PAGE = 10;
+const MESSAGES = [
+  "Finding the best spots for your weekend…",
+  "Checking local city events…",
+  "Looking for family-friendly activities…",
+  "Planning your perfect day out…",
+  "Almost there, putting it together…",
+];
+
+let allEvents = [], allRoutes = [], shown = 0, activeFilter = 0, msgTimer = null, msgIndex = 0;
+
+// ── Spinner ───────────────────────────────────────────────────────────────────
+function rotateMsgs() {
+  msgIndex = (msgIndex + 1) % MESSAGES.length;
+  document.getElementById('spinnerMsg').textContent = MESSAGES[msgIndex];
+  msgTimer = setTimeout(rotateMsgs, 4000);
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+const FILTERS = [
+  { label: 'All',             fn: e => true },
+  { label: 'Free',            fn: e => e.fee.toLowerCase() === 'free' },
+  { label: 'Family Friendly', fn: e => e.family_friendly === 'Yes' },
+  { label: 'East Bay',        fn: e => /fremont|union city|newark|hayward|san leandro|castro valley|milpitas/i.test(e.city) },
+  { label: 'South Bay',       fn: e => /san jose|santa clara|campbell|cupertino|los gatos|saratoga|sunnyvale/i.test(e.city) },
+  { label: 'Peninsula',       fn: e => /mountain view|palo alto|menlo park|redwood city|san mateo|burlingame|foster city|millbrae|belmont|san carlos|los altos/i.test(e.city) },
+  { label: 'Tri-Valley',      fn: e => /pleasanton|livermore|dublin|san ramon/i.test(e.city) },
+];
+
+function filteredEvents() {
+  return allEvents.filter(FILTERS[activeFilter].fn);
+}
+
+function buildFilterBar() {
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = '';
+  FILTERS.forEach((f, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (i === activeFilter ? ' active' : '');
+    chip.textContent = f.label;
+    chip.onclick = () => { activeFilter = i; shown = 0; renderEvents(); updateChips(); };
+    bar.appendChild(chip);
+  });
+  bar.classList.remove('hidden');
+}
+
+function updateChips() {
+  document.querySelectorAll('#filterBar .chip').forEach((c, i) => c.classList.toggle('active', i === activeFilter));
+}
+
+// ── Badge helpers ─────────────────────────────────────────────────────────────
+function feeBadge(fee) {
+  const free = fee.toLowerCase() === 'free';
+  return `<span class="badge ${free ? 'badge-green' : 'badge-gray'}">${fee}</span>`;
+}
+
+function familyBadge(val) {
+  const map = { Yes: 'badge-green', Maybe: 'badge-amber', No: 'badge-gray' };
+  const labels = { Yes: 'Yes ✓', Maybe: 'Maybe', No: 'No' };
+  return `<span class="badge ${map[val] || 'badge-gray'}">${labels[val] || val}</span>`;
+}
+
+function popPips(n) {
+  const cls = n >= 8 ? 'high' : n <= 4 ? 'low' : 'on';
+  return `<span class="pips" title="${n}/10">` +
+    Array.from({length: 10}, (_, i) => `<span class="pip ${i < n ? cls : ''}"></span>`).join('') +
+    `</span> <span class="pop-num">${n}</span>`;
+}
+
+// ── Render events table ───────────────────────────────────────────────────────
+function renderEvents() {
+  const results = document.getElementById('results');
+  const moreWrap = document.getElementById('moreWrap');
+  const events = filteredEvents();
+
+  // Build or rebuild the events section card
+  let card = document.getElementById('eventsCard');
+  if (!card) {
+    card = document.createElement('div');
+    card.id = 'eventsCard';
+    card.className = 'section-card';
+    card.innerHTML = '<h2>📅 Events</h2><div class="table-wrap"><table><thead><tr>' +
+      '<th>Event</th><th>City</th><th>Fee</th><th>Popularity</th><th>Family</th><th>Link</th>' +
+      '</tr></thead><tbody id="evtBody"></tbody></table></div>';
+    results.prepend(card);
+  }
+
+  const tbody = document.getElementById('evtBody');
+  tbody.innerHTML = '';
+
+  const batch = events.slice(0, shown + PAGE);
+  shown = batch.length;
+
+  batch.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="evt-name">${e.name}</span><br><span class="evt-blurb">${e.blurb || ''}</span></td>
+      <td>${e.city}</td>
+      <td>${feeBadge(e.fee)}</td>
+      <td>${popPips(e.popularity)}</td>
+      <td>${familyBadge(e.family_friendly)}</td>
+      <td><a href="${e.link}" target="_blank" rel="noopener">↗ View</a></td>`;
+    tbody.appendChild(tr);
+  });
+
+  moreWrap.classList.toggle('hidden', shown >= events.length);
+  results.classList.remove('hidden');
+}
+
+function showMore() {
+  renderEvents();
+}
+
+// ── Render routes ─────────────────────────────────────────────────────────────
+function renderRoutes(routes) {
+  const results = document.getElementById('results');
+  let card = document.getElementById('routesCard');
+  if (!card) {
+    card = document.createElement('div');
+    card.id = 'routesCard';
+    card.className = 'section-card';
+    results.appendChild(card);
+  }
+
+  const grid = routes.map(r => `
+    <div class="route-card">
+      <div class="route-title">${r.name} &nbsp;<span class="badge badge-indigo">${r.region}</span> &nbsp;<span class="badge badge-gray">${r.date}</span></div>
+      <ul class="route-stops">
+        ${(r.stops || []).map((s, i) => `
+          <li class="route-stop">
+            <span class="stop-num">${i + 1}</span>
+            <span><strong>${s.event}</strong> &mdash; ${s.time} &mdash; ${s.city}</span>
+          </li>`).join('')}
+      </ul>
+      <div class="route-why">${r.why}</div>
+    </div>`).join('');
+
+  card.innerHTML = `<h2>🗺️ Suggested Day-Trip Routes</h2><div class="route-grid">${grid}</div>`;
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+async function findEvents() {
+  const btn = document.getElementById('findBtn');
+  const spinner = document.getElementById('spinner');
+  const error = document.getElementById('error');
+  const results = document.getElementById('results');
+  const filterBar = document.getElementById('filterBar');
+  const moreWrap = document.getElementById('moreWrap');
+
+  btn.disabled = true;
+  spinner.classList.remove('hidden');
+  error.classList.add('hidden');
+  results.classList.add('hidden');
+  filterBar.classList.add('hidden');
+  moreWrap.classList.add('hidden');
+  results.innerHTML = '';
+  allEvents = []; allRoutes = []; shown = 0;
+
+  msgIndex = 0;
+  document.getElementById('spinnerMsg').textContent = MESSAGES[0];
+  msgTimer = setTimeout(rotateMsgs, 4000);
+
+  try {
+    const res = await fetch('/api/events', { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Unknown error');
+
+    allEvents = data.events || [];
+    allRoutes = data.routes || [];
+
+    renderEvents();
+    renderRoutes(allRoutes);
+    buildFilterBar();
+  } catch (err) {
+    error.textContent = 'Error: ' + err.message;
+    error.classList.remove('hidden');
+  } finally {
+    clearTimeout(msgTimer);
+    spinner.classList.add('hidden');
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

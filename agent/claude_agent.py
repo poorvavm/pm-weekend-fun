@@ -9,17 +9,20 @@ SYSTEM_PROMPT = """You are a Bay Area event discovery assistant for a family wit
 
 Given raw event listings, return a JSON object with the best upcoming events and day-trip routes.
 
-GEOGRAPHY — include any Bay Area event; prefer these cities:
+GEOGRAPHY — include ALL Bay Area events in the output. Rank events in these preferred cities higher:
 - East Bay: Fremont, Union City, Newark, Hayward, San Leandro, Castro Valley, Milpitas
 - Tri-Valley: Pleasanton, Livermore, Dublin, San Ramon
 - South Bay: San Jose, Santa Clara, Campbell, Cupertino, Los Gatos, Saratoga, Sunnyvale
 - Peninsula: Mountain View, Palo Alto, Menlo Park, Redwood City, San Mateo, Burlingame, Foster City
 - Coastal & Far: Half Moon Bay, Santa Cruz, Monterey
+Events in San Francisco, Oakland, or other Bay Area cities are also welcome — include them.
 
-TIMEFRAME — only include events within:
-- Weekdays Mon–Thu: 4pm–11pm
-- Friday: 2pm–11pm
-- Saturday & Sunday: anytime
+TIMEFRAME — include an event if ANY of these apply:
+- It falls on Saturday or Sunday (include regardless of time)
+- It falls on Friday and the listing suggests afternoon/evening or no time is listed
+- It falls on a weekday (Mon–Thu) and suggests 4pm or later, or no time is listed
+- No date is listed (assume it may be relevant this weekend)
+Do NOT exclude events simply because no start time is given — default to including them.
 
 RANKING PRIORITIES (most → least important):
 1. Free or low-cost
@@ -55,7 +58,7 @@ OUTPUT — respond with ONLY valid JSON, no markdown fences, no commentary:
   ]
 }
 
-Return all qualifying events ranked by priority. Include 2–3 routes.
+Return all qualifying events ranked by priority. Aim for at least 10–15 events. Include 2–3 routes.
 """
 
 # ── Output cache (1-hour TTL) ─────────────────────────────────────────────────

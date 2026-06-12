@@ -1,0 +1,9 @@
+data/uscities.csv is derived from the SimpleMaps United States Cities Database
+(Basic version 1.79), available at https://simplemaps.com/data/us-cities.
+
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+See: https://creativecommons.org/licenses/by/4.0/
+
+The columns retained in this repo are: city, state_id, state_name, lat, lng.
+The original dataset includes additional fields (population, county, zips, etc.)
+that have been dropped to reduce file size.

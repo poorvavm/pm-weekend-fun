@@ -1,5 +1,5 @@
 """
-Weekly Bay Area events digest — runs every Thursday via cron.
+Weekly events digest — runs every Thursday via cron.
 Fetches events, asks Claude to summarize, sends a styled HTML email.
 """
 
@@ -47,10 +47,10 @@ def _to_html(markdown_text):
     <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);
                 border-radius:14px 14px 0 0;padding:28px 32px;color:#fff;">
       <h1 style="margin:0;font-size:1.5rem;font-weight:800;">
-        Bay Area Weekend Events
+        Weekend Events and Routes Planner
       </h1>
       <p style="margin:6px 0 0;color:#93c5fd;font-size:0.9rem;">
-        {_weekend_label()} &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; Free &amp; cheap
+        {_weekend_label()} &nbsp;·&nbsp; Family-friendly &nbsp;·&nbsp; Free &amp; budget friendly
       </p>
     </div>
 
@@ -80,7 +80,7 @@ def _to_html(markdown_text):
 
     <!-- Footer -->
     <p style="text-align:center;color:#94a3b8;font-size:0.78rem;margin-top:16px;">
-      Sent every Thursday · Bay Area Events Agent
+      Sent every Thursday · Weekend Events and Routes Planner
     </p>
   </div>
 
@@ -106,7 +106,7 @@ def main():
     result = run_agent()
 
     weekend = _weekend_label()
-    subject = f"Bay Area Events: {weekend}"
+    subject = f"Weekend Events: {weekend}"
     html = _to_html(result)
 
     print(f"Sending to {RECIPIENT_EMAIL}…")

@@ -1,16 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bay Area Weekend Events</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
+{% extends "_base.html" %}
 
+{% block content %}
 <header>
-  <h1>Bay Area Weekend Events</h1>
-  <p class="subtitle">Family-friendly &nbsp;·&nbsp; Free &amp; cheap &nbsp;·&nbsp; Multi-stop routes</p>
+  <h1>Weekend Events and Routes Planner</h1>
+  <p class="subtitle">Family-friendly &nbsp;·&nbsp; Free &amp; budget friendly &nbsp;·&nbsp; Multi-stop routes</p>
   <button class="hero-btn" id="findBtn" onclick="findEvents()">&#x2600;&#xfe0f; Find Events</button>
 </header>
 
@@ -40,6 +33,38 @@ const MESSAGES = [
 
 let allEvents = [], allRoutes = [], shown = 0, activeFilter = 0, msgTimer = null, msgIndex = 0;
 
+// ── Filters (built from /api/config on load) ──────────────────────────────────
+// Base filters always present; region filters appended after.
+let FILTERS = [
+  { label: 'All',             fn: e => true },
+  { label: 'Free',            fn: e => (e.fee || '').toLowerCase() === 'free' },
+  { label: 'Family Friendly', fn: e => e.family_friendly === 'Yes' },
+];
+
+async function loadFilters() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (!data.ok) return;
+    const regionFilters = (data.config.regions || [])
+      .filter(region => region.enabled !== false)
+      .map(region => {
+        const names = (region.cities || []).map(c => c.name.toLowerCase()).filter(Boolean);
+        return {
+          label: region.name,
+          fn: e => {
+            const city = (e.city || '').toLowerCase();
+            return names.some(n => city.includes(n));
+          },
+        };
+      });
+    FILTERS = FILTERS.concat(regionFilters);
+  } catch (err) {
+    console.warn('Could not load region filters:', err);
+  }
+}
+loadFilters();
+
 // ── Spinner ───────────────────────────────────────────────────────────────────
 function rotateMsgs() {
   msgIndex = (msgIndex + 1) % MESSAGES.length;
@@ -48,16 +73,6 @@ function rotateMsgs() {
 }
 
 // ── Filters ───────────────────────────────────────────────────────────────────
-const FILTERS = [
-  { label: 'All',             fn: e => true },
-  { label: 'Free',            fn: e => e.fee.toLowerCase() === 'free' },
-  { label: 'Family Friendly', fn: e => e.family_friendly === 'Yes' },
-  { label: 'East Bay',        fn: e => /fremont|union city|newark|hayward|san leandro|castro valley|milpitas/i.test(e.city) },
-  { label: 'South Bay',       fn: e => /san jose|santa clara|campbell|cupertino|los gatos|saratoga|sunnyvale/i.test(e.city) },
-  { label: 'Peninsula',       fn: e => /mountain view|palo alto|menlo park|redwood city|san mateo|burlingame|foster city|millbrae|belmont|san carlos|los altos/i.test(e.city) },
-  { label: 'Tri-Valley',      fn: e => /pleasanton|livermore|dublin|san ramon/i.test(e.city) },
-];
-
 function filteredEvents() {
   return allEvents.filter(FILTERS[activeFilter].fn);
 }
@@ -104,7 +119,6 @@ function renderEvents() {
   const moreWrap = document.getElementById('moreWrap');
   const events = filteredEvents();
 
-  // Build or rebuild the events section card
   let card = document.getElementById('eventsCard');
   if (!card) {
     card = document.createElement('div');
@@ -212,5 +226,4 @@ async function findEvents() {
   }
 }
 </script>
-</body>
-</html>
+{% endblock %}

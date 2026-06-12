@@ -8,36 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from bs4 import BeautifulSoup
 
+from agent import config
+
 HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
-
-# Cities grouped by geography — drives both search and trip routing
-CITY_GROUPS = {
-    "East Bay": [
-        "Fremont", "Union City", "Newark", "Hayward",
-        "San Leandro", "Castro Valley", "Milpitas",
-    ],
-    "Tri-Valley": ["Pleasanton", "Livermore", "Dublin", "San Ramon"],
-    "South Bay": [
-        "San Jose", "Santa Clara", "Campbell", "Cupertino",
-        "Los Gatos", "Saratoga", "Sunnyvale",
-    ],
-    "Peninsula": [
-        "Mountain View", "Los Altos", "Palo Alto", "Menlo Park",
-        "Redwood City", "San Carlos", "Belmont", "Foster City",
-        "Millbrae", "Burlingame", "San Mateo", "Atherton",
-    ],
-    "Coastal & Far": ["Half Moon Bay", "Santa Cruz", "Monterey", "Sacramento"],
-}
-
-# Eventbrite URL slug per city (lowercase, hyphenated)
-EVENTBRITE_CITY_SLUGS = [
-    "fremont", "milpitas", "hayward", "san-leandro", "newark",
-    "pleasanton", "livermore", "dublin", "san-ramon",
-    "san-jose", "santa-clara", "campbell", "cupertino", "sunnyvale",
-    "mountain-view", "palo-alto", "menlo-park", "redwood-city",
-    "san-mateo", "burlingame", "foster-city",
-    "half-moon-bay", "santa-cruz",
-]
 
 
 def get_weekend_dates():
@@ -53,8 +26,8 @@ def get_weekend_dates():
 
 # ── Eventbrite scraper ────────────────────────────────────────────────────────
 
-def _scrape_eventbrite_city(city_slug):
-    url = f"https://www.eventbrite.com/d/ca--{city_slug}/free--events--this-weekend/"
+def _scrape_eventbrite_city(state, city_slug):
+    url = f"https://www.eventbrite.com/d/{state}--{city_slug}/free--events--this-weekend/"
     try:
         r = requests.get(url, headers=HEADERS, timeout=15)
         r.raise_for_status()
@@ -93,10 +66,14 @@ def _scrape_eventbrite_city(city_slug):
 
 
 def _scrape_all_eventbrite():
+    targets = config.get_scrape_targets()
     all_events = []
     seen_urls = set()
     with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(_scrape_eventbrite_city, slug): slug for slug in EVENTBRITE_CITY_SLUGS}
+        futures = {
+            pool.submit(_scrape_eventbrite_city, t["state"], t["slug"]): t
+            for t in targets
+        }
         for future in as_completed(futures):
             for ev in future.result():
                 if ev["link"] not in seen_urls:
@@ -150,6 +127,11 @@ _cache: dict = {"events": None, "ts": 0.0}
 CACHE_TTL = 7200  # seconds
 
 
+def invalidate_cache():
+    _cache["events"] = None
+    _cache["ts"] = 0.0
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def fetch_raw_events():
@@ -159,7 +141,7 @@ def fetch_raw_events():
         return _cache["events"], today, friday, saturday, sunday
 
     eventbrite_events = _scrape_all_eventbrite()
-    funcheap_events = _scrape_funcheap(pages=2)
+    funcheap_events = _scrape_funcheap(pages=2) if config.is_funcheap_enabled() else []
     all_events = eventbrite_events + funcheap_events
 
     _cache["events"] = all_events
@@ -171,7 +153,7 @@ def fetch_raw_events():
 def format_for_claude(events, today, friday, saturday, sunday):
     city_groups_str = "\n".join(
         f"  {region}: {', '.join(cities)}"
-        for region, cities in CITY_GROUPS.items()
+        for region, cities in config.get_city_groups().items()
     )
 
     eb = [e for e in events if e["source"] == "Eventbrite"]

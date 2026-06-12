@@ -1,0 +1,178 @@
+{
+  "regions": [
+    {
+      "name": "East Bay",
+      "enabled": true,
+      "state": "ca",
+      "cities": [
+        {
+          "name": "Fremont",
+          "slug": "fremont"
+        },
+        {
+          "name": "Union City",
+          "slug": "union-city"
+        },
+        {
+          "name": "Newark",
+          "slug": "newark"
+        },
+        {
+          "name": "Hayward",
+          "slug": "hayward"
+        },
+        {
+          "name": "San Leandro",
+          "slug": "san-leandro"
+        },
+        {
+          "name": "Castro Valley",
+          "slug": ""
+        },
+        {
+          "name": "Milpitas",
+          "slug": "milpitas"
+        }
+      ]
+    },
+    {
+      "name": "Tri-Valley",
+      "enabled": false,
+      "state": "ca",
+      "cities": [
+        {
+          "name": "Pleasanton",
+          "slug": "pleasanton"
+        },
+        {
+          "name": "Livermore",
+          "slug": "livermore"
+        },
+        {
+          "name": "Dublin",
+          "slug": "dublin"
+        },
+        {
+          "name": "San Ramon",
+          "slug": "san-ramon"
+        }
+      ]
+    },
+    {
+      "name": "South Bay",
+      "enabled": true,
+      "state": "ca",
+      "cities": [
+        {
+          "name": "San Jose",
+          "slug": "san-jose"
+        },
+        {
+          "name": "Santa Clara",
+          "slug": "santa-clara"
+        },
+        {
+          "name": "Campbell",
+          "slug": "campbell"
+        },
+        {
+          "name": "Cupertino",
+          "slug": "cupertino"
+        },
+        {
+          "name": "Los Gatos",
+          "slug": ""
+        },
+        {
+          "name": "Saratoga",
+          "slug": ""
+        },
+        {
+          "name": "Sunnyvale",
+          "slug": "sunnyvale"
+        }
+      ]
+    },
+    {
+      "name": "Peninsula",
+      "enabled": true,
+      "state": "ca",
+      "cities": [
+        {
+          "name": "Mountain View",
+          "slug": "mountain-view"
+        },
+        {
+          "name": "Los Altos",
+          "slug": ""
+        },
+        {
+          "name": "Palo Alto",
+          "slug": "palo-alto"
+        },
+        {
+          "name": "Menlo Park",
+          "slug": "menlo-park"
+        },
+        {
+          "name": "Redwood City",
+          "slug": "redwood-city"
+        },
+        {
+          "name": "San Carlos",
+          "slug": ""
+        },
+        {
+          "name": "Belmont",
+          "slug": ""
+        },
+        {
+          "name": "Foster City",
+          "slug": "foster-city"
+        },
+        {
+          "name": "Millbrae",
+          "slug": ""
+        },
+        {
+          "name": "Burlingame",
+          "slug": "burlingame"
+        },
+        {
+          "name": "San Mateo",
+          "slug": "san-mateo"
+        },
+        {
+          "name": "Atherton",
+          "slug": ""
+        }
+      ]
+    },
+    {
+      "name": "Coastal & Far",
+      "enabled": true,
+      "state": "ca",
+      "cities": [
+        {
+          "name": "Half Moon Bay",
+          "slug": "half-moon-bay"
+        },
+        {
+          "name": "Santa Cruz",
+          "slug": "santa-cruz"
+        },
+        {
+          "name": "Monterey",
+          "slug": ""
+        },
+        {
+          "name": "Sacramento",
+          "slug": ""
+        }
+      ]
+    }
+  ],
+  "preferences": {
+    "persona": ""
+  }
+}

@@ -3,3 +3,4 @@ requests==2.32.3
 beautifulsoup4==4.12.3
 markdown==3.7
 python-dotenv==1.0.1
+pip-system-certs==5.3

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Weekend Events and Routes Planner{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <span class="topnav-brand">Weekend Events</span>
+    <div class="topnav-links">
+      <a href="/"       class="topnav-link {% if request.endpoint == 'index' %}active{% endif %}">Events</a>
+      <a href="/config" class="topnav-link {% if request.endpoint == 'config_page' %}active{% endif %}">Cities</a>
+    </div>
+  </div>
+</nav>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

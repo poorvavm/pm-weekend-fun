@@ -1,6 +1,6 @@
 # Setup Guide
 
-Step-by-step instructions to get the Bay Area Weekend Events agent running on your machine.
+Step-by-step instructions to get the Weekend Events and Routes Planner running on your machine.
 
 ---
 
@@ -16,8 +16,8 @@ Step-by-step instructions to get the Bay Area Weekend Events agent running on yo
 ## Step 1 — Clone the project
 
 ```bash
-git clone <repo-url> pm-weekend-fun
-cd pm-weekend-fun
+git clone <repo-url> vm-weekend-events
+cd vm-weekend-events
 ```
 
 ---
@@ -128,7 +128,7 @@ Edit the `EVENTBRITE_CITY_SLUGS` list in `agent/search.py` to add or remove citi
 
 Edit the cron entry with `crontab -e`. To send on Wednesdays at 7am instead:
 ```
-0 7 * * 3 cd /path/to/pm-weekend-fun && .venv/bin/python3 email_digest.py >> /tmp/weekend-events-digest.log 2>&1
+0 7 * * 3 cd /path/to/vm-weekend-events && .venv/bin/python3 email_digest.py >> /tmp/weekend-events-digest.log 2>&1
 ```
 
 ## Cache behaviour

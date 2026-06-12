@@ -1,0 +1,313 @@
+{% extends "_base.html" %}
+{% block title %}Configure Cities · Weekend Events and Routes Planner{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="config-header">
+    <div>
+      <h1 class="config-title">Configure Cities</h1>
+      <p class="config-sub">Edit the regions and cities that drive scraping, the Claude prompt's geography list, and the filter chips on the events page.</p>
+    </div>
+    <div class="config-header-actions">
+      <button class="more-btn" id="resetBtn" onclick="resetDefaults()" title="Restore the Bay Area regions and clear persona">Reset to Bay Area defaults</button>
+      <button class="hero-btn" id="saveBtn" onclick="save()">Save</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <div class="prefs-card">
+    <h3 class="prefs-title">Preferences</h3>
+    <label class="prefs-field">
+      <span class="prefs-label">Audience description (optional)</span>
+      <span class="prefs-hint">Used to bias rankings. Example: "Family of four with toddlers, prefer outdoor and free events."</span>
+      <textarea id="prefsPersona" class="prefs-textarea" rows="3" maxlength="1000"
+                oninput="updatePersona(this.value)"
+                placeholder="Describe who the events are for, what they like, what to avoid…"></textarea>
+    </label>
+  </div>
+
+  <div class="add-region-bar">
+    <button class="more-btn" onclick="addRegion()">+ Add Region</button>
+    <button class="more-btn" onclick="showRadiusPanel()">+ Add Region by Radius</button>
+  </div>
+
+  <div id="radiusPanel" class="radius-panel hidden">
+    <h3 class="radius-title">Add Region by Radius</h3>
+    <div class="radius-grid">
+      <label>State
+        <select id="rpState" onchange="onStateChange()">
+          <option value="">Loading…</option>
+        </select>
+      </label>
+      <label>Center city
+        <select id="rpCity" disabled><option value="">Pick a state first</option></select>
+      </label>
+      <label>Radius (mi)
+        <input type="number" id="rpRadius" value="25" min="1" max="200" />
+      </label>
+      <button class="more-btn small" onclick="previewRadius()">Preview</button>
+    </div>
+    <div id="rpPreview" class="radius-preview hidden">
+      <label>Region name
+        <input type="text" id="rpName" class="radius-name-input" />
+      </label>
+      <div class="radius-preview-meta"><span id="rpCount"></span></div>
+      <ul id="rpList" class="preview-list"></ul>
+      <div class="radius-actions">
+        <button class="hero-btn" onclick="addRadiusRegion()">Add to config</button>
+        <button class="more-btn small" onclick="hideRadiusPanel()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="regions"></div>
+</div>
+
+<script>
+let cfg = { regions: [], preferences: { persona: '' } };
+
+async function load() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to load config');
+    cfg = data.config;
+    if (!cfg.preferences) cfg.preferences = { persona: '' };
+    renderPrefs();
+    render();
+  } catch (err) {
+    showToast('Could not load config: ' + err.message, false);
+  }
+}
+
+function renderPrefs() {
+  document.getElementById('prefsPersona').value = cfg.preferences.persona || '';
+}
+
+function updatePersona(val) {
+  cfg.preferences.persona = val;
+}
+
+function render() {
+  const root = document.getElementById('regions');
+  root.innerHTML = '';
+  cfg.regions.forEach((region, rIdx) => {
+    const enabled = region.enabled !== false;
+    const card = document.createElement('div');
+    card.className = 'region-card' + (enabled ? '' : ' region-disabled');
+    const stateCode = (region.state || 'ca').toUpperCase();
+    card.innerHTML = `
+      <div class="region-head">
+        <input class="region-name" type="text" value="${escapeAttr(region.name)}"
+               oninput="updateRegionName(${rIdx}, this.value)" placeholder="Region name" />
+        <span class="region-state-badge" title="State code used for Eventbrite scraping">${stateCode}</span>
+        <label class="toggle" title="${enabled ? 'Disable region' : 'Enable region'}">
+          <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleRegion(${rIdx}, this.checked)" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">${enabled ? 'On' : 'Off'}</span>
+        </label>
+        <button class="btn-ghost-danger" onclick="removeRegion(${rIdx})">Remove</button>
+      </div>
+      <table class="city-table">
+        <thead><tr><th>City name</th><th>Eventbrite slug</th><th></th></tr></thead>
+        <tbody>
+          ${region.cities.map((c, cIdx) => `
+            <tr>
+              <td><input type="text" value="${escapeAttr(c.name)}"
+                         oninput="updateCity(${rIdx}, ${cIdx}, 'name', this.value)"
+                         placeholder="City name" /></td>
+              <td><input type="text" value="${escapeAttr(c.slug || '')}"
+                         oninput="updateCity(${rIdx}, ${cIdx}, 'slug', this.value)"
+                         placeholder="lowercase-hyphenated (or blank to skip scraping)" /></td>
+              <td><button class="btn-ghost-danger" onclick="removeCity(${rIdx}, ${cIdx})">×</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <button class="more-btn small" onclick="addCity(${rIdx})">+ Add city</button>
+    `;
+    root.appendChild(card);
+  });
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function updateRegionName(rIdx, val) { cfg.regions[rIdx].name = val; }
+function updateCity(rIdx, cIdx, key, val) { cfg.regions[rIdx].cities[cIdx][key] = val; }
+
+function toggleRegion(rIdx, on) {
+  cfg.regions[rIdx].enabled = !!on;
+  render();
+}
+
+function addRegion() {
+  cfg.regions.unshift({ name: 'New region', enabled: true, state: 'ca', cities: [] });
+  render();
+  const cards = document.querySelectorAll('#regions .region-card');
+  if (cards.length) cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Radius panel ──────────────────────────────────────────────────────────────
+let rpPreviewData = null;  // { region_name, state, cities: [{name, slug, distance_mi}] }
+let statesLoaded = false;
+
+async function showRadiusPanel() {
+  const panel = document.getElementById('radiusPanel');
+  panel.classList.remove('hidden');
+  document.getElementById('rpPreview').classList.add('hidden');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!statesLoaded) {
+    try {
+      const res = await fetch('/api/geo/states');
+      const data = await res.json();
+      const sel = document.getElementById('rpState');
+      sel.innerHTML = '<option value="">— select state —</option>' +
+        data.states.map(s => `<option value="${s.id}">${escapeAttr(s.name)} (${s.id})</option>`).join('');
+      // Pre-select California for the common case
+      sel.value = 'CA';
+      statesLoaded = true;
+      onStateChange();
+    } catch (err) {
+      showToast('Could not load states: ' + err.message, false);
+    }
+  }
+}
+
+function hideRadiusPanel() {
+  document.getElementById('radiusPanel').classList.add('hidden');
+  rpPreviewData = null;
+}
+
+async function onStateChange() {
+  const state = document.getElementById('rpState').value;
+  const citySel = document.getElementById('rpCity');
+  if (!state) {
+    citySel.disabled = true;
+    citySel.innerHTML = '<option value="">Pick a state first</option>';
+    return;
+  }
+  citySel.disabled = true;
+  citySel.innerHTML = '<option>Loading…</option>';
+  try {
+    const res = await fetch('/api/geo/cities?state=' + encodeURIComponent(state));
+    const data = await res.json();
+    citySel.innerHTML = '<option value="">— select city —</option>' +
+      data.cities.map(c => `<option value="${escapeAttr(c.name)}">${escapeAttr(c.name)}</option>`).join('');
+    citySel.disabled = false;
+  } catch (err) {
+    citySel.innerHTML = '<option value="">(failed to load)</option>';
+    showToast('Could not load cities: ' + err.message, false);
+  }
+}
+
+async function previewRadius() {
+  const state = document.getElementById('rpState').value;
+  const city = document.getElementById('rpCity').value;
+  const radius = document.getElementById('rpRadius').value;
+  if (!state || !city) {
+    showToast('Pick a state and a city first.', false);
+    return;
+  }
+  try {
+    const res = await fetch(`/api/geo/nearby?state=${encodeURIComponent(state)}&city=${encodeURIComponent(city)}&radius=${encodeURIComponent(radius)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Preview failed');
+    rpPreviewData = data;
+    document.getElementById('rpName').value = data.region_name;
+    document.getElementById('rpCount').textContent = `${data.cities.length} cities within ${radius} mi`;
+    document.getElementById('rpList').innerHTML = data.cities.map(c =>
+      `<li><span>${escapeAttr(c.name)}</span><span class="dist">${c.distance_mi} mi</span></li>`
+    ).join('');
+    document.getElementById('rpPreview').classList.remove('hidden');
+  } catch (err) {
+    showToast(err.message, false);
+  }
+}
+
+function addRadiusRegion() {
+  if (!rpPreviewData) return;
+  const name = (document.getElementById('rpName').value || rpPreviewData.region_name).trim();
+  cfg.regions.unshift({
+    name,
+    enabled: true,
+    state: rpPreviewData.state,
+    cities: rpPreviewData.cities.map(c => ({ name: c.name, slug: c.slug })),
+  });
+  hideRadiusPanel();
+  render();
+  showToast(`Added "${name}" with ${rpPreviewData.cities.length} cities — click Save to persist.`, true);
+  setTimeout(() => {
+    const cards = document.querySelectorAll('#regions .region-card');
+    if (cards.length) cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
+}
+function removeRegion(rIdx) {
+  if (!confirm(`Remove region "${cfg.regions[rIdx].name}" and all its cities?`)) return;
+  cfg.regions.splice(rIdx, 1);
+  render();
+}
+function addCity(rIdx) {
+  cfg.regions[rIdx].cities.push({ name: '', slug: '' });
+  render();
+}
+function removeCity(rIdx, cIdx) {
+  cfg.regions[rIdx].cities.splice(cIdx, 1);
+  render();
+}
+
+async function save() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Save failed');
+    cfg = data.config;
+    renderPrefs();
+    render();
+    showToast('Saved. Caches cleared — next "Find Events" will use the new list.', true);
+  } catch (err) {
+    showToast(err.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function resetDefaults() {
+  if (!confirm('Reset all regions and persona to the Bay Area defaults? Your custom regions will be replaced.')) return;
+  const btn = document.getElementById('resetBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/config/reset', { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Reset failed');
+    cfg = data.config;
+    if (!cfg.preferences) cfg.preferences = { persona: '' };
+    renderPrefs();
+    render();
+    showToast('Restored to Bay Area defaults.', true);
+  } catch (err) {
+    showToast(err.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let toastTimer = null;
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 5000);
+}
+
+load();
+</script>
+{% endblock %}

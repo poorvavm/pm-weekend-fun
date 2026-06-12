@@ -3,19 +3,16 @@ import re
 import subprocess
 import time
 from datetime import date, timedelta
+from agent import config
 from agent.search import fetch_raw_events, format_for_claude
 
-SYSTEM_PROMPT = """You are a Bay Area event discovery assistant for a family with young children in the South Bay / East Bay.
+_PROMPT_TEMPLATE = """You are an event discovery assistant.
 
 Given raw event listings, return a JSON object with the best upcoming events and day-trip routes.
 
-GEOGRAPHY — include ALL Bay Area events in the output. Rank events in these preferred cities higher:
-- East Bay: Fremont, Union City, Newark, Hayward, San Leandro, Castro Valley, Milpitas
-- Tri-Valley: Pleasanton, Livermore, Dublin, San Ramon
-- South Bay: San Jose, Santa Clara, Campbell, Cupertino, Los Gatos, Saratoga, Sunnyvale
-- Peninsula: Mountain View, Palo Alto, Menlo Park, Redwood City, San Mateo, Burlingame, Foster City
-- Coastal & Far: Half Moon Bay, Santa Cruz, Monterey
-Events in San Francisco, Oakland, or other Bay Area cities are also welcome — include them.
+GEOGRAPHY — rank events in these preferred cities higher:
+{geography}
+Other nearby cities are also welcome — include them.
 
 TIMEFRAME — include an event if ANY of these apply:
 - It falls on Saturday or Sunday (include regardless of time)
@@ -61,9 +58,35 @@ OUTPUT — respond with ONLY valid JSON, no markdown fences, no commentary:
 Return all qualifying events ranked by priority. Aim for at least 10–15 events. Include 2–3 routes.
 """
 
+
+def build_system_prompt():
+    geography = "\n".join(
+        f"- {region}: {', '.join(cities)}"
+        for region, cities in config.get_city_groups().items()
+        if cities
+    )
+    prompt = _PROMPT_TEMPLATE.replace("{geography}", geography)
+
+    persona = config.get_persona()
+    if persona:
+        # Insert as a second sentence after the opener so the audience framing
+        # is the first thing Claude reads about the user's context.
+        prompt = prompt.replace(
+            "You are an event discovery assistant.",
+            f"You are an event discovery assistant. Audience: {persona}",
+            1,
+        )
+    return prompt
+
+
 # ── Output cache (1-hour TTL) ─────────────────────────────────────────────────
 _output_cache: dict = {"data": None, "ts": 0.0}
 OUTPUT_CACHE_TTL = 3600
+
+
+def invalidate_cache():
+    _output_cache["data"] = None
+    _output_cache["ts"] = 0.0
 
 
 def _prefilter_events(events, max_events=40):
@@ -111,7 +134,7 @@ def get_events_json():
     events, today, friday, saturday, sunday = fetch_raw_events()
     events = _prefilter_events(events)
     user_message = format_for_claude(events, today, friday, saturday, sunday)
-    prompt = f"{SYSTEM_PROMPT}\n\n---\n\n{user_message}"
+    prompt = f"{build_system_prompt()}\n\n---\n\n{user_message}"
 
     result = subprocess.run(
         ["claude", "-p", prompt],

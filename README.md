@@ -1,6 +1,6 @@
-# Bay Area Weekend Events Agent
+# Weekend Events and Routes Planner
 
-A local web app that finds family-friendly, free & cheap events across the Bay Area every weekend — powered by Claude AI. Sends a weekly email digest every Thursday.
+A local web app that finds family-friendly, free & budget-friendly weekend events — powered by Claude AI. Regions are configurable per user (defaults seed Bay Area for convenience). Sends a weekly email digest every Thursday.
 
 ## Features
 
@@ -72,7 +72,7 @@ To change the schedule, edit with `crontab -e`.
 ## Project Structure
 
 ```
-pm-weekend-fun/
+vm-weekend-events/
 ├── app.py                  # Flask server (port 5050)
 ├── email_digest.py         # Weekly email sender
 ├── agent/
